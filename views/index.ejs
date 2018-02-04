@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title><%= title %></title>
+<link rel='stylesheet' href='/stylesheets/style.css' />
+<script src="javascripts/polyfill/promise.js"></script>
+<script src="javascripts/polyfill/fetch.js"></script>
+<script src="javascripts/utilities.js"></script>
+<script src="data/index.js"></script>
+<!--<script src="javascripts/app.js"></script>-->
+<script>
+window.onload = onWindowLoad;
+function onWindowLoad(event) {
+	var searchField = document.querySelector('.searchField');
+	var ui = {
+		champions: document.querySelectorAll('.champs > .champ'),
+		info: {
+			container: document.querySelector('.champInfo-container'),
+			bounds: document.querySelector('.champInfo'),
+			thumbnail: document.querySelector('.champInfo .champ-thumbnail'),
+			championName: document.querySelector('.champInfo .champ-name'),
+			articles: document.querySelector('.champInfo .champ-articles'),
+			'article': {
+				container: document.querySelector('.champInfo .article-container'),
+				title: document.querySelector('.champInfo .article-title')
+			},
+			builds: document.querySelector('.champInfo .article-builds'),
+			build: {
+				container: document.querySelector('.champInfo .build-container'),
+				title: document.querySelector('.champInfo .build-title')
+			},
+			itemsGroups: {
+				container: document.querySelector('.champInfo .itemsGroups-container'),
+				title: document.querySelector('.champInfo .itemsGroups-title')
+			},
+			closeButton: document.querySelector('.champInfo .closeButton')
+		}
+	};
+
+	for(var i = 0, champion; champion = ui.champions[i]; i++) {
+		champion.onclick = setChampionClick(champions[champion.getAttribute('data-index')]);
+	}
+
+	var item;
+	for(var i in items) {
+		item = items[i];
+		item.containerElement = document.createElement('div');
+		item.thumbnailElement = document.createElement('img');
+		item.titleElement = document.createElement('div');
+
+		item.containerElement.classList.add('item-container');
+		item.titleElement.classList.add('item-title');
+
+		item.titleElement.textContent = item.title;
+		item.thumbnailElement.src = item.thumbnail;
+
+		item.containerElement.appendChild(item.titleElement);
+		item.containerElement.appendChild(item.thumbnailElement);
+	}
+
+	searchField.oninput = onSearch;
+	searchField.focus();
+
+	ui.info.closeButton.onclick = infoCloseButtonClick;
+	ui.info.container.onclick = infoContainerClick;
+
+	function setChampionClick(champion) {
+		return onClick;
+
+		function onClick(event) {
+			if(!champion.articles) {
+				alert('');
+			} else {
+				showChampion(champion);
+			}
+		}
+	}
+
+	function showChampion(champion) {
+		ui.info.thumbnail.style.backgroundImage = 'url(' + champion.thumbnail + ')';
+		ui.info.championName.textContent = champion.name;
+		ui.info.articles.innerHTML = '';
+
+		var activeArticle;
+		for(var i = 0, article; article = champion.articles[i]; i++) {
+			if(!article.button) {
+				article.button = document.createElement('button');
+				article.button.textContent = article.title;
+				article.button.onclick = setArticleClick(article);
+			}
+			ui.info.articles.appendChild(article.button);
+		}
+
+		champion.articles[0].button.onclick();
+
+		function setArticleClick(article) {
+			return onClick;
+
+			function onClick(event) {
+				if(activeArticle) {
+					activeArticle.classList.remove('active');
+				}
+				activeArticle = article.button;
+				activeArticle.classList.add('active');
+				showArticle(article);
+			}
+		}
+
+		ui.info.container.classList.remove('hidden');
+	}
+
+	function showArticle(article) {
+		console.log('showArticle', article);
+		ui.info.article.title.textContent = article.title;
+		ui.info.builds.innerHTML = '';
+
+		var activeBuild;
+		for(var i = 0, build; build = article.builds[i]; i++) {
+			if(!build.button) {
+				build.button = document.createElement('button');
+				build.button.textContent = build.title;
+				build.button.onclick = setBuildClick(build);
+			}
+			ui.info.builds.appendChild(build.button);
+		}
+		if(article.builds.length == 1) {
+			article.builds[0].button.classList.add('hidden');
+		}
+		article.builds[0].button.onclick();
+
+		function setBuildClick(build) {
+			return onClick;
+
+			function onClick(event) {
+				if(activeBuild) {
+					activeBuild.classList.remove('active');
+				}
+				activeBuild = build.button;
+				activeBuild.classList.add('active');
+				showBuild(build);
+			}
+		}
+	}
+
+	function showBuild(build) {
+		console.log('showBuild', build);
+		ui.info.build.title.textContent = build.title;
+		ui.info.itemsGroups.container.innerHTML = '';
+		ui.info.bounds.style.backgroundImage = 'linear-gradient(to top, black, transparent),' + build.background;
+
+		var item;
+		for(var i = 0, itemsGroup; itemsGroup = build.itemsGroups[i]; i++) {
+			if(!itemsGroup.containerElement) {
+				console.log('Items group rendered.', itemsGroup);
+				itemsGroup.containerElement = document.createElement('div');
+				itemsGroup.titleElement = document.createElement('div');
+				itemsGroup.itemsElement = document.createElement('div');
+
+				itemsGroup.containerElement.classList.add('itemsGroup-container');
+				itemsGroup.titleElement.classList.add('itemsGroup-title');
+				itemsGroup.itemsElement.classList.add('itemsGroup-items');
+
+				itemsGroup.titleElement.textContent = itemsGroup.title;
+
+				for(var j = 0, itemId; itemId = itemsGroup.items[j]; j++) {
+					item = items[itemId];
+					itemsGroup.itemsElement.appendChild(item.containerElement.cloneNode(true));
+				}
+				itemsGroup.containerElement.appendChild(itemsGroup.titleElement);
+				itemsGroup.containerElement.appendChild(itemsGroup.itemsElement);
+			}
+			ui.info.itemsGroups.container.appendChild(itemsGroup.containerElement);
+		}
+	}
+
+	function infoCloseButtonClick(event) {
+		ui.info.container.classList.add('hidden');
+	}
+
+	function infoContainerClick(event) {
+		if(event.target.contains(this)) {
+			ui.info.container.classList.add('hidden');
+		}
+	}
+
+	function onSearch(event) {
+		var query = new RegExp('^' + event.target.value.toUpperCase());
+		var championData;
+
+		for(var i = 0, champion; champion = ui.champions[i]; i++) {
+			championData = champions[champion.getAttribute('data-index')];
+
+			if(championData.name.toUpperCase().match(query)) {
+				champion.classList.remove('hidden');
+			}
+			else {
+				champion.classList.add('hidden');
+			}
+		}
+	}
+}
+</script>
+<style>
+.champInfo-container {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+	transform: translate(-50%,-50%);
+
+    width: 100%;
+	height: 100%;
+
+	background: rgba(0,0,0,0.3);
+
+    overflow: auto;
+}
+
+.champInfo-container.hidden {
+	background: rgba(0,0,0,0);
+	pointer-events: none;
+}
+
+.champInfo {
+    position: relative;
+	margin: 30px auto;
+    padding: 10px;
+
+	width: 70%;
+    min-height: 311px;
+
+	color: white;
+
+	background-color: black;
+	background-size: cover;
+	background-position: top;
+
+    transition: transform .5s, opacity .3s;
+}
+.champInfo-container.hidden .champInfo {
+	opacity: 0;
+	transform: translate(0,-50%) rotateY(15deg);
+}
+
+.champInfo .champ-thumbnail {
+    position: absolute;
+    left: 100%;
+	top: 7px;
+
+    width: 150px;
+    max-width: 15%;
+    height: 150px;
+	max-height: 17vw;
+
+	outline: 7px solid black;
+
+    background-repeat: no-repeat;
+    background-size: cover;
+    background-position: center;
+    background-color: black;
+}
+
+.champInfo .champ-name {
+	float: left;
+
+	font-size: 24px;
+	font-width: 700;
+	line-height: 1;
+}
+
+.champ-articles {
+	position: absolute;
+	top: 0;
+	right: 100%;
+
+	border-radius: 25px 0 0 25px;
+
+    overflow: hidden;
+}
+
+.champ-articles > button {
+	padding: 15px 5px 15px 10px;
+
+	border: none;
+
+	cursor: pointer;
+}
+.champ-articles > button.active {
+	background: orangered;
+}
+
+.champInfo .article-container {
+	padding: 10px;
+
+	text-align: center;
+}
+
+.article-builds {
+    position: relative;
+    display: inline-block;
+    margin: 10px auto;
+}
+
+.champInfo .article-builds > button {
+	padding: 10px;
+	margin: 5px;
+
+	color: white;
+
+	border: 1px solid white;
+	border-radius: 10px;
+	outline: none;
+
+	background: black;
+
+	cursor: pointer;
+}
+.champInfo .article-builds > button:hover {
+	background: rgba(255,255,255,0.5);
+}
+.champInfo .article-builds > button.hidden {
+	display: none;
+}
+.champInfo .article-builds > button.active {
+	background: white;
+	color: black;
+}
+
+.runes-container {
+    position: relative;
+    display: flex;
+	margin-bottom: 30px;
+}
+
+.runes-main-container,
+.runes-secondary {
+    position: relative;
+    display: flex;
+}
+
+.runes-secondary {
+    margin-left: 20px;
+}
+
+.rune-type-title {
+	position: absolute;
+	left: 50%;
+	bottom: 100%;
+	transform: translate(-50%,0);
+
+	margin-bottom: 5px;
+}
+
+.rune-container,
+.runes-type-container {
+    position: relative;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    border-width: 2px;
+    border-style: solid;
+}
+
+.rune-container {
+    margin-left: 15px;
+}
+
+.rune-title {
+	position: absolute;
+	left: 50%;
+	top: 100%;
+	transform: translate(-50%,0);
+
+	margin-top: 5px;
+
+	color: white;
+}
+
+.runes-bonus-container {
+    margin-left: 30px;
+}
+
+.skills-build-body {
+	
+}
+
+.skills-container {
+	position: relative;
+    float: left;
+    background: white;
+}
+
+.skill-thumbnail {
+    float: left;
+	position: relative;
+    width: 50px;
+    height: 50px;
+    border: 1px solid black;
+}
+
+.skill-checkboxes {
+	float: left;
+}
+
+.skill-checkbox {
+	float: left;
+    /* background: red; */
+    border: 1px solid green;
+    height: 50px;
+    width: 20px;
+}
+.skill-checkbox.checked {
+    background: red;
+}
+
+.champInfo .itemsGroup-container {
+	display: inline-block;
+    padding: 5px;
+	margin: 5px 0 0 5px;
+
+	border: 1px solid black;
+    background: rgba(0,0,0,0.7);
+}
+
+.champInfo .item-container {
+	position: relative;
+
+	display: inline-block;
+	margin: 5px;
+
+	text-align: center;
+
+	border: 1px solid black;
+    overflow: hidden;
+}
+
+.champInfo .item-container img {
+    height: 50px;
+}
+
+.champInfo .item-title {
+	position: absolute;
+	bottom: 0;
+	width: 100%;
+
+	padding-top: 5px;
+
+	font-size: 8px;
+
+	background: rgba(0,0,0,0.5);
+
+	transition: transform .3s;
+}
+.champInfo .item-container:hover .item-title {
+	transform: translate(0, 100%);
+}
+
+
+.champInfo .closeButton {
+	position: absolute;
+	left: 100%;
+	top: 0;
+    transform: translate(-80%,-20%);
+
+	width: 50px;
+	height: 50px;
+
+	border-radius: 50%;
+	border: 1px solid black;
+	background: red;
+
+	cursor: pointer;
+
+	display: none;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+	<% if(champs) { %>
+
+	<input class="searchField">
+
+	<div class="champs">
+
+		<% for(let i = 0, champ; champ = champs[i]; i++) { %>
+
+		<div class="champ" data-index="<%= i %>" style="background-image: url('<%= champ.thumbnail %>')">
+			<div class="champ-name"><%= champ.name %></div>
+		</div>
+
+		<% } %>
+
+	</div>
+	<% } else { %>
+		No champions today!
+	<% } %>
+
+	<div class="champInfo-container hidden">
+		<div class="champInfo">
+
+			<div class="champ-thumbnail"></div>
+			<div class="champ-name"></div>
+			<div class="champ-articles"></div>
+
+			<div class="article-container">
+				<div class="article-title"></div>
+				<div class="article-builds"></div>
+				<div class="runes-container">
+					<div class="runes-main-container">
+						<div class="runes-type-container">
+							<img class="rune-type" src="">
+							<div class="rune-type-title"></div>
+						</div>
+						<div class="rune-container">
+							<img class="rune" src="">
+							<div class="rune-title"></div>
+						</div>
+						<div class="rune-container">
+							<img class="rune" src="">
+							<div class="rune-title"></div>
+						</div>
+						<div class="rune-container">
+							<img class="rune" src="">
+							<div class="rune-title"></div>
+						</div>
+						<div class="rune-container">
+							<img class="rune" src="">
+							<div class="rune-title"></div>
+						</div>
+					</div>
+					<div class="runes-secondary">
+						<div class="runes-type-container">
+							<img class="rune-type" src="">
+							<div class="rune-type-title"></div>
+						</div>
+						<div class="rune-container">
+							<img class="rune" src="">
+							<div class="rune-title"></div>
+						</div>
+						<div class="rune-container">
+							<img class="rune" src="">
+							<div class="rune-title"></div>
+						</div>
+					</div>
+					<div class="runes-bonus-container">
+						<div class="runes-bonus-title">Bonus:</div>
+						<div class="runes-bonus"></div>
+					</div>
+				</div>
+				<div class="skills-build-body">
+					<div class="skills-container">
+						<div class="skill-container">
+
+							<div class="skill-thumbnail"></div>
+							<!--<div class="skill-title"></div>-->
+							<div class="skill-checkboxes">
+								<div class="skill-checkbox checked"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+							</div>
+						</div>
+						<div class="skill-container">
+							<div class="skill-thumbnail"></div>
+							<!--<div class="skill-title"></div>-->
+							<div class="skill-checkboxes">
+								<div class="skill-checkbox checked"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+							</div>
+						</div>
+						<div class="skill-container">
+							<div class="skill-thumbnail"></div>
+							<!--<div class="skill-title"></div>-->
+							<div class="skill-checkboxes">
+								<div class="skill-checkbox checked"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+							</div>
+						</div>
+						<div class="skill-container">
+							<div class="skill-thumbnail"></div>
+							<!--<div class="skill-title"></div>-->
+							<div class="skill-checkboxes">
+								<div class="skill-checkbox checked"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+								<div class="skill-checkbox"></div>
+							</div>
+						</div>
+					</div>
+					<div class="build-container">
+						<div class="build-title"></div>
+
+						<div class="itemsGroups-container">
+							<div class="itemsGroups-title"></div>
+
+							<div class="itemsGroups-container"></div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+
+			<div class="closeButton"></div>
+		</div>
+	</div>
+</div>
+
+</body>
+</html>
